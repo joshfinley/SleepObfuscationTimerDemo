@@ -39,7 +39,7 @@ PIMAGE_SECTION_HEADER GetTextSectionHeader(HMODULE hModule)
     }
 
     PIMAGE_NT_HEADERS NtHeaders = (PIMAGE_NT_HEADERS)(
-        reinterpret_cast<PBYTE>(hModule) + DosHeader->e_lfanew);
+        ((PBYTE)(hModule)) + DosHeader->e_lfanew);
     if (NtHeaders->Signature != IMAGE_NT_SIGNATURE) {
         return NULL;
     }
@@ -65,10 +65,10 @@ PVOID FindByteSequence(PBYTE Start, SIZE_T Length, PBYTE Sequence, SIZE_T Sequen
     }
 
     for (SIZE_T i = 0; i <= Length - SequenceLength; ++i) {
-        bool Match = true;
+        BOOL Match = TRUE;
         for (SIZE_T j = 0; j < SequenceLength; ++j) {
             if (Start[i + j] != Sequence[j]) {
-                Match = false;
+                Match = FALSE;
                 break;
             }
         }
@@ -102,7 +102,7 @@ PVOID FindGadget(PCSTR InModuleName, PBYTE Gadget, SIZE_T GadgetLength)
         (ft)->HighPart = (DWORD)(((ULONGLONG) - ((sec) * 1000 * 10 * 1000)) >> 32);             \
         (ft)->LowPart  = (DWORD)(((ULONGLONG) - ((sec) * 1000 * 10 * 1000)) & 0xffffffff); }    \
 
-extern "C" void QuadSleep(PVOID, PVOID, PVOID, PVOID);
+extern void QuadSleep(PVOID, PVOID, PVOID, PVOID);
 
 typedef struct _CRYPT_BUFFER {
     DWORD Length;
@@ -264,6 +264,11 @@ DWORD ObfuscatedSleep(INT Time)
     if (!GadgetRCX || !GadgetRDX || !GadgetShadowFixer)
     {
         FreeLibrary(hAdvapi32);
+        CloseHandle(hTimerDummyThread);
+        CloseHandle(hTimerDecrypt);
+        CloseHandle(hTimerEncrypt);
+        CloseHandle(hTimerProtectRW);
+        CloseHandle(hTimerProtectRWX);
         return ERROR_NOT_FOUND;
     }
 
@@ -284,6 +289,7 @@ DWORD ObfuscatedSleep(INT Time)
     }
 
     QuadSleep(GadgetRCX, GadgetRDX, GadgetShadowFixer, (PVOID)SleepEx);
+
     FreeLibrary(hAdvapi32);
     CloseHandle(hTimerDummyThread);
     CloseHandle(hTimerDecrypt);

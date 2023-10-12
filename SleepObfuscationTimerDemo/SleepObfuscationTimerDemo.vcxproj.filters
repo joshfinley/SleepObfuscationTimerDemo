@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SleepObfuscationTimerDemo.cpp">
+    <ClCompile Include="SleepObfuscationTimerDemo.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -131,7 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="SleepObfuscationTimerDemo.cpp" />
+    <ClCompile Include="SleepObfuscationTimerDemo.c" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="Sleep.asm">
