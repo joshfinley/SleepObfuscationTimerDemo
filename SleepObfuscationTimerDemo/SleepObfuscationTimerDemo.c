@@ -245,12 +245,12 @@ DWORD ObfuscatedSleep(INT Time)
     ContextDecrypt.Rdx = (DWORD_PTR)&Key;
 
     // VirtualProtect(ImageBase, ImageSize, PAGE_EXECUTE_READWRITE, &OldProtect);
-    ContextProtectRW.Rsp -= (8 + 0x30);
-    ContextProtectRW.Rip = (DWORD_PTR)VirtualProtect;
-    ContextProtectRW.Rcx = (DWORD_PTR)ImageBase;
-    ContextProtectRW.Rdx = ImageSize;
-    ContextProtectRW.R8 = PAGE_EXECUTE_READWRITE;
-    ContextProtectRW.R9 = (DWORD_PTR)&OldProtect;
+    ContextProtectRWX.Rsp -= (8 + 0x30);
+    ContextProtectRWX.Rip = (DWORD_PTR)VirtualProtect;
+    ContextProtectRWX.Rcx = (DWORD_PTR)ImageBase;
+    ContextProtectRWX.Rdx = ImageSize;
+    ContextProtectRWX.R8 = PAGE_EXECUTE_READWRITE;
+    ContextProtectRWX.R9 = (DWORD_PTR)&OldProtect;
 
     INIT_TIMER_MS(&DueTimeProtectRW, 0);
     INIT_TIMER_MS(&DueTimeEncrypt,1);
