@@ -1,3 +1,5 @@
+// Demo of sleep obfuscation using timers (copy of https://github.com/Idov31/Cronos/blob/master/src/Cronos.c).
+//
 #include <Windows.h>
 
 /*
@@ -117,19 +119,20 @@ typedef NTSTATUS(WINAPI* SYS_FN_032)(PCRYPT_BUFFER pData, PDATA_KEY pKey);
 
 DWORD ObfuscatedSleep(INT Time)
 {
+    if (Time < 30) { return ERROR_TIMER_NOT_CANCELED; }
     HANDLE          hTimerProtectRW         = NULL;
-    HANDLE          hTimerProtectRX        = NULL;
+    HANDLE          hTimerProtectRWX        = NULL;
     HANDLE          hTimerEncrypt           = NULL;
     HANDLE          hTimerDecrypt           = NULL;
     HANDLE          hTimerDummyThread       = NULL;
     LARGE_INTEGER   DueTimeProtectRW        = { NULL };
-    LARGE_INTEGER   DueTimeProtectRX       = { NULL };
+    LARGE_INTEGER   DueTimeProtectRWX       = { NULL };
     LARGE_INTEGER   DueTimeEncrypt          = { NULL };
     LARGE_INTEGER   DueTimeDecrypt          = { NULL };
     LARGE_INTEGER   DueTimeDummy            = { NULL };
     CONTEXT         ContextDummyThread      = { NULL };
     CONTEXT         ContextProtectRW        = { NULL };
-    CONTEXT         ContextProtectRX       = { NULL };
+    CONTEXT         ContextProtectRWX       = { NULL };
     CONTEXT         ContextDecrypt          = { NULL };
     CONTEXT         ContextEncrypt          = { NULL };
     DWORD           ImageSize               = NULL;
@@ -184,13 +187,13 @@ DWORD ObfuscatedSleep(INT Time)
 
     // Create timers
     hTimerProtectRW = CreateWaitableTimerW(NULL, TRUE, L"TimerProtectRW");
-    hTimerProtectRX = CreateWaitableTimerW(NULL, TRUE, L"TimerProtectRX");
+    hTimerProtectRWX = CreateWaitableTimerW(NULL, TRUE, L"TimerProtectRWX");
     hTimerEncrypt = CreateWaitableTimerW(NULL, TRUE, L"TimerEncry");
     hTimerDecrypt = CreateWaitableTimerW(NULL, TRUE, L"TimerDecrypt");
     hTimerDummyThread = CreateWaitableTimerW(NULL, TRUE, L"TimerDummyThread");
 
     if (
-        !hTimerProtectRW || !hTimerProtectRX ||
+        !hTimerProtectRW || !hTimerProtectRWX ||
         !hTimerEncrypt || !hTimerDecrypt ||
         !hTimerDummyThread )
     {
@@ -214,7 +217,7 @@ DWORD ObfuscatedSleep(INT Time)
         CloseHandle(hTimerDecrypt);
         CloseHandle(hTimerEncrypt);
         CloseHandle(hTimerProtectRW);
-        CloseHandle(hTimerProtectRX);
+        CloseHandle(hTimerProtectRWX);
         return ERROR_TIMER_NOT_CANCELED;
     }
 
@@ -222,7 +225,7 @@ DWORD ObfuscatedSleep(INT Time)
 
     // Creating the context
     Memcpy(&ContextProtectRW, &ContextDummyThread, sizeof(CONTEXT));
-    Memcpy(&ContextProtectRX, &ContextDummyThread, sizeof(CONTEXT));
+    Memcpy(&ContextProtectRWX, &ContextDummyThread, sizeof(CONTEXT));
     Memcpy(&ContextEncrypt, &ContextDummyThread, sizeof(CONTEXT));
     Memcpy(&ContextEncrypt, &ContextDummyThread, sizeof(CONTEXT));
 
@@ -246,18 +249,18 @@ DWORD ObfuscatedSleep(INT Time)
     ContextDecrypt.Rcx = (DWORD_PTR)&Image;
     ContextDecrypt.Rdx = (DWORD_PTR)&Key;
 
-    // VirtualProtect(ImageBase, ImageSize, PAGE_EXECUTE_READ, &OldProtect);
-    ContextProtectRX.Rsp -= (8 + 0x30);
-    ContextProtectRX.Rip = (DWORD_PTR)VirtualProtect;
-    ContextProtectRX.Rcx = (DWORD_PTR)ImageBase;
-    ContextProtectRX.Rdx = ImageSize;
-    ContextProtectRX.R8 = PAGE_EXECUTE_READ;
-    ContextProtectRX.R9 = (DWORD_PTR)&OldProtect;
+    // VirtualProtect(ImageBase, ImageSize, PAGE_EXECUTE_READWRITE, &OldProtect);
+    ContextProtectRWX.Rsp -= (8 + 0x30);
+    ContextProtectRWX.Rip = (DWORD_PTR)VirtualProtect;
+    ContextProtectRWX.Rcx = (DWORD_PTR)ImageBase;
+    ContextProtectRWX.Rdx = ImageSize;
+    ContextProtectRWX.R8 = PAGE_EXECUTE_READWRITE;
+    ContextProtectRWX.R9 = (DWORD_PTR)&OldProtect;
 
     INIT_TIMER_MS(&DueTimeProtectRW, 0);
-    INIT_TIMER_MS(&DueTimeEncrypt,1);
-    INIT_TIMER_MS(&DueTimeDecrypt, Time - 1);
-    INIT_TIMER_MS(&DueTimeProtectRX, Time);
+    INIT_TIMER_MS(&DueTimeEncrypt, 2);
+    INIT_TIMER_MS(&DueTimeDecrypt, Time - 10);
+    INIT_TIMER_MS(&DueTimeProtectRWX, Time);
 
     GadgetRCX = FindGadget("ntdll", SigGadgetRCX, sizeof(SigGadgetRCX));
     GadgetRDX = FindGadget("kernel32", SigGadgetRDX, sizeof(SigGadgetRDX));
@@ -270,14 +273,14 @@ DWORD ObfuscatedSleep(INT Time)
         CloseHandle(hTimerDecrypt);
         CloseHandle(hTimerEncrypt);
         CloseHandle(hTimerProtectRW);
-        CloseHandle(hTimerProtectRX);
+        CloseHandle(hTimerProtectRWX);
         return ERROR_NOT_FOUND;
     }
 
     // Set the timers
     if (
         !SetWaitableTimer(hTimerDecrypt, &DueTimeDecrypt, 0, (PTIMERAPCROUTINE)NtContinue, &ContextDecrypt, FALSE) ||
-        !SetWaitableTimer(hTimerProtectRX, &DueTimeProtectRX, 0, (PTIMERAPCROUTINE)NtContinue, &ContextProtectRX, FALSE) ||
+        !SetWaitableTimer(hTimerProtectRWX, &DueTimeProtectRWX, 0, (PTIMERAPCROUTINE)NtContinue, &ContextProtectRWX, FALSE) ||
         !SetWaitableTimer(hTimerProtectRW, &DueTimeProtectRW, 0, (PTIMERAPCROUTINE)NtContinue, &ContextProtectRW, FALSE) ||
         !SetWaitableTimer(hTimerEncrypt, &DueTimeEncrypt, 0, (PTIMERAPCROUTINE)NtContinue, &ContextEncrypt, FALSE))
     {
@@ -286,7 +289,7 @@ DWORD ObfuscatedSleep(INT Time)
         CloseHandle(hTimerDecrypt);
         CloseHandle(hTimerEncrypt);
         CloseHandle(hTimerProtectRW);
-        CloseHandle(hTimerProtectRX);
+        CloseHandle(hTimerProtectRWX);
         return ERROR_TIMER_NOT_CANCELED;
     }
 
@@ -297,13 +300,13 @@ DWORD ObfuscatedSleep(INT Time)
     CloseHandle(hTimerDecrypt);
     CloseHandle(hTimerEncrypt);
     CloseHandle(hTimerProtectRW);
-    CloseHandle(hTimerProtectRX);
+    CloseHandle(hTimerProtectRWX);
 
     return ERROR_SUCCESS;
 }
 
 DWORD Main()
 {
-    DWORD Status = ObfuscatedSleep(5);
+    DWORD Status = ObfuscatedSleep(30);
     return Status;
 }

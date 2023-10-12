@@ -6,7 +6,6 @@ PUBLIC memset
 QuadSleep PROC
     sub rsp, 28h               ;28h
     mov r10, _end
-    sub r10, 0
     push r10                   ;30h
     push r9                    ;38h
 
